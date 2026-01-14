@@ -10,6 +10,12 @@ def sha256_bytes(data: bytes) -> bytes:
     """
     return sha256(data).digest()
 
+def sha256_int(data: bytes) -> int:
+    """
+    Compute SHA-256 hash and interpret as big-endian integer.
+    Used for Fiat–Shamir challenges.
+    """
+    return int.from_bytes(sha256_bytes(data), byteorder="big")
 
 def serialize_int(x: int) -> bytes:
     """
