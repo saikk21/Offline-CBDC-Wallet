@@ -6,6 +6,7 @@ from crypto.hash import serialize_point
 from crypto.curve import ORDER
 from crypto.zkp.mint import prove_minting, verify_minting
 from crypto.zkp.mint import prove_opening, verify_opening
+from crypto.zkp.mint import prove_minting, verify_minting
 
 def test_commitment_properties():
     v1, v2 = 10, 20
@@ -29,11 +30,16 @@ def test_signature():
     assert verify(pk, sig, data)
     assert not verify(pk, sig, b"tampered")
 
+<<<<<<< HEAD
 def test_minting_zkp_with_denomination():
+=======
+def test_minting_zkp_opening_fiat_shamir():
+>>>>>>> 92bba36 (Complete minting ZKP with denomination enforcement)
     v = 20
     r = random_scalar()
 
     C = commit(v, r)
+<<<<<<< HEAD
     denom_proof = prove_minting(v, r, C)
 
     assert verify_minting(C, denom_proof)
@@ -46,3 +52,17 @@ def test_minting_zkp_opening_fiat_shamir():
     proof = prove_opening(v, r, C)
 
     assert verify_opening(C, proof)
+=======
+    proof = prove_opening(v, r, C)
+
+    assert verify_opening(C, proof)
+
+def test_minting_zkp_with_denomination():
+    v = 20
+    r = random_scalar()
+
+    C = commit(v, r)
+    denom_proof = prove_minting(v, r, C)
+
+    assert verify_minting(C, denom_proof)  
+>>>>>>> 92bba36 (Complete minting ZKP with denomination enforcement)
