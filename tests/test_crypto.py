@@ -4,8 +4,13 @@ from crypto.commitment import commit
 from crypto.signature import generate_keypair, sign, verify
 from crypto.hash import serialize_point
 from crypto.curve import ORDER
-from crypto.zkp.mint import prove_minting, verify_minting
-from crypto.zkp.mint import prove_opening, verify_opening
+from crypto.zkp.mint import (
+    prove_minting,
+    verify_minting,
+    prove_opening,
+    verify_opening,
+)
+
 
 def test_commitment_properties():
     v1, v2 = 10, 20
