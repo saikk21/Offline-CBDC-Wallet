@@ -5,14 +5,13 @@ from crypto.hash import sha256_int
 
 
 # ---------------------------------------------------------
-# Serial / Nullifier (LINEAR, ZKP-SAFE)
+# Serial / Nullifier (linear, ZKP-safe)
 # ---------------------------------------------------------
 
 def derive_serial(secret: int):
     """
-    Derive serial as an elliptic-curve point.
-    This MUST be linear for Sigma protocols.
-    
+    Derive a serial (nullifier) as an elliptic curve point.
+
     serial = s * G
     """
     return secret * G
@@ -56,16 +55,16 @@ def prove_spend_ownership(
       serial = s*G
     """
 
-    # --- Step 1: randomness ---
+    # Step 1: choose randomness
     a_v = random_scalar()
     a_r = random_scalar()
     a_s = random_scalar()
 
-    # --- Step 2: ephemeral commitments ---
+    # Step 2: ephemeral commitments
     A_commit = a_v * G + a_r * H
     A_serial = a_s * G
 
-    # --- Step 3: Fiat–Shamir challenge ---
+    # Step 3: Fiat–Shamir challenge
     e = _fs_challenge(
         A_commit.x().to_bytes(32, "big") +
         A_commit.y().to_bytes(32, "big") +
@@ -77,7 +76,7 @@ def prove_spend_ownership(
         serial.y().to_bytes(32, "big")
     )
 
-    # --- Step 4: responses ---
+    # Step 4: responses
     z_v = (a_v + e * v) % ORDER
     z_r = (a_r + e * r) % ORDER
     z_s = (a_s + e * s) % ORDER
@@ -94,7 +93,7 @@ def verify_spend_ownership(C, serial, proof: SpendProof) -> bool:
     Verify spend ownership proof.
     """
 
-    # --- Step 1: recompute challenge ---
+    # Recompute challenge
     e = _fs_challenge(
         proof.A_commit.x().to_bytes(32, "big") +
         proof.A_commit.y().to_bytes(32, "big") +
@@ -106,11 +105,11 @@ def verify_spend_ownership(C, serial, proof: SpendProof) -> bool:
         serial.y().to_bytes(32, "big")
     )
 
-    # --- Step 2: verify commitment relation ---
+    # Commitment equation
     if proof.z_v * G + proof.z_r * H != proof.A_commit + e * C:
         return False
 
-    # --- Step 3: verify serial relation ---
+    # Serial equation
     if proof.z_s * G != proof.A_serial + e * serial:
         return False
 
