@@ -29,10 +29,6 @@ def prove_opening(v: int, r: int, C):
     b = random_scalar()
 
     A = a * G + b * H
-<<<<<<< HEAD
-=======
-    
->>>>>>> 191d0a1 (Add mint, spend, and value conservation ZKPs)
 
     e = _fs_challenge(
         A.x().to_bytes(32, "big") +
