@@ -1,0 +1,28 @@
+Offline-CBDC-Wallet/
+├── README.md
+│
+├── crypto/                 # Cryptographic foundations
+│   ├── curve.py            # Elliptic curve parameters, G/H, randomness
+│   ├── commitment.py       # Pedersen commitments (hidden money)
+│   ├── hash.py             # SHA-256 + deterministic serialization
+│   └── signature.py        # Bank/RBI digital signatures
+│
+├── bank/                   # Bank / RBI backend logic
+│   ├── mint.py             # Token minting & signing
+│   ├── ledger.py           # Spent-serial tracking
+│   └── verify.py           # Reconciliation verification
+│
+├── wallet/                 # Wallet-side logic
+│   ├── wallet.py           # Wallet orchestration
+│   ├── mint.py             # Mint request handling
+│   ├── spend.py            # Offline spending logic
+│   └── verify.py           # Incoming token verification
+│
+├── models/                 # Shared data structures
+│   ├── token.py            # Token definition
+│   └── certificate.py      # Device certificate
+│
+├── tests/                  # Security & correctness tests
+│   └── test_crypto.py      # Crypto primitive test
+
+python -m pytest
