@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from crypto.curve import G, ORDER
-from crypto.hash import sha256_int, serialize_point, deserialize_point
+from crypto.hash import sha256_int, serialize_point
 
 
 @dataclass(frozen=True)
