@@ -1,5 +1,3 @@
-# wallet/token_lifecycle.py
-
 from typing import List, Tuple
 from models.token import Token
 from models.token_state import TokenState
@@ -19,18 +17,58 @@ from crypto.zkp.recursive import (
     prove_recursive_invariant,
     RecursiveInvariantProof
 )
-from crypto.curve import random_scalar
+from crypto.curve import random_scalar, ORDER
+from crypto.hash import sha256_int, serialize_point
 
 
 class TokenLifecycle:
     """
-    Handles token consumption and derivation during offline spending.
+    Handles token minting, consumption, and derivation during offline spending.
     """
 
     def __init__(self, store: TokenStore, proof_state: ProofState):
         self.store = store
         self.proof_state = proof_state
 
+    # ==================================================
+    # STEP 6.2 — WALLET MINT FLOW
+    # ==================================================
+    def mint(
+        self,
+        v: int,
+        expiry: int,
+        bank_public_key,
+        bank_mint_fn
+    ) -> Token:
+
+        r = random_scalar()
+        from crypto.commitment import commit
+        C = commit(v, r)
+
+        from crypto.zkp.mint import prove_minting
+        mint_proof = prove_minting(v, r, C)
+
+        bank_token = bank_mint_fn(C, mint_proof)
+
+        if not bank_token.verify_bank_signature(bank_public_key):
+            raise ValueError("Invalid bank signature on minted token")
+
+        wallet_token = Token(
+            serial=bank_token.serial,
+            commitment=bank_token.commitment,
+            expiry=bank_token.expiry,
+            signature=bank_token.signature,
+            v=v,
+            r=r,
+            s=bank_token.serial
+        )
+
+        self.store.add_token(wallet_token)
+        return wallet_token
+
+    # ==================================================
+    # STEP 7 — OFFLINE SPEND (ATOMIC + CORRECT)
+    # ==================================================
     def spend(
         self,
         input_serials: List[int],
@@ -44,20 +82,11 @@ class TokenLifecycle:
         ValueProof,
         RecursiveInvariantProof
     ]:
-        """
-        Perform an offline spend.
 
-        Returns:
-        - derived_tokens
-        - spend_serials
-        - spend_proofs
-        - value_proof
-        - recursive_proof
-        """
+        # ==================================================
+        # PHASE 1 — COMPUTE (NO STATE MUTATION)
+        # ==================================================
 
-        # --------------------------------------------------
-        # 1. Fetch and validate input tokens
-        # --------------------------------------------------
         input_tokens = []
 
         for serial in input_serials:
@@ -81,37 +110,23 @@ class TokenLifecycle:
         if v_in != v_out + v_change:
             raise ValueError("Input value does not match outputs")
 
-        # --------------------------------------------------
-        # 2. Derive spend serial
-        # --------------------------------------------------
-        serial = derive_serial(s_in)
+        spend_serial = derive_serial(s_in)
 
-        # --------------------------------------------------
-        # 3. Spend ownership ZKP
-        # --------------------------------------------------
         spend_proof = prove_spend_ownership(
             v=v_in,
             r=r_in,
             s=s_in,
             C=C_in,
-            serial=serial
+            serial=spend_serial
         )
 
-        # --------------------------------------------------
-        # 4. Create output commitments
-        # --------------------------------------------------
         r_out = random_scalar()
         r_change = random_scalar()
 
-        # NOTE: commitment creation already exists in crypto.commitment
         from crypto.commitment import commit
-
         C_out = commit(v_out, r_out)
         C_change = commit(v_change, r_change)
 
-        # --------------------------------------------------
-        # 5. Value conservation ZKP
-        # --------------------------------------------------
         value_proof = prove_value_conservation(
             v_in=v_in,
             r_in=r_in,
@@ -124,9 +139,38 @@ class TokenLifecycle:
             C_change=C_change
         )
 
-        # --------------------------------------------------
-        # 6. Update proof state
-        # --------------------------------------------------
+        # ==================================================
+        # DETERMINISTIC LOCAL SERIALS (CRITICAL FIX)
+        # ==================================================
+
+        local_serial_out = sha256_int(serialize_point(C_out)) % ORDER
+        local_serial_change = sha256_int(serialize_point(C_change)) % ORDER
+
+        s_out = random_scalar()
+        s_change = random_scalar()
+
+        token_out = Token(
+            serial=local_serial_out,
+            commitment=C_out,
+            expiry=expiry,
+            signature=None,
+            v=v_out,
+            r=r_out,
+            s=s_out
+        )
+
+        token_change = Token(
+            serial=local_serial_change,
+            commitment=C_change,
+            expiry=expiry,
+            signature=None,
+            v=v_change,
+            r=r_change,
+            s=s_change
+        )
+
+        derived_tokens = [token_out, token_change]
+
         class _Tmp:
             def __init__(self, C, r):
                 self.C = C
@@ -138,6 +182,10 @@ class TokenLifecycle:
             _Tmp(C_change, r_change)
         ]
 
+        # ==================================================
+        # PHASE 2 — COMMIT
+        # ==================================================
+
         self.proof_state.update_from_spend(
             input_tokens=input_wrapped,
             output_tokens=output_wrapped
@@ -145,44 +193,14 @@ class TokenLifecycle:
 
         recursive_proof = prove_recursive_invariant(self.proof_state)
 
-        # --------------------------------------------------
-        # 7. Mark input token as spent
-        # --------------------------------------------------
         self.store.mark_spent(t_in.serial)
 
-        # --------------------------------------------------
-        # 8. Create derived tokens
-        # --------------------------------------------------
-        derived_tokens = []
-
-        s_out = random_scalar()
-        s_change = random_scalar()
-
-        token_out = Token(
-            serial=None,              # derived tokens have no global serial
-            commitment=C_out,
-            expiry=expiry,
-            signature=None,
-            v=v_out,
-            r=r_out,
-            s=s_out
-        )
-
-        token_change = Token(
-            serial=None,
-            commitment=C_change,
-            expiry=expiry,
-            signature=None,
-            v=v_change,
-            r=r_change,
-            s=s_change
-        )
-
-        derived_tokens.extend([token_out, token_change])
+        for t in derived_tokens:
+            self.store.add_token(t)
 
         return (
             derived_tokens,
-            [serial],
+            [spend_serial],
             [spend_proof],
             value_proof,
             recursive_proof
