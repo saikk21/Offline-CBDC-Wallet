@@ -63,4 +63,4 @@ def verify_spend_authorization(
     lhs = z * G
     rhs = R + e * pk_device
 
-    return lhs.to_affine() == rhs.to_affine()
+    return lhs == rhs 

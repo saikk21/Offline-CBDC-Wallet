@@ -15,7 +15,7 @@ def verify_offline_transaction(
     from crypto.device.verify_spend_auth import verify_spend_authorization
 
     if not verify_spend_authorization(
-        tx.spend_transcript_hash,
+        tx.transcript_hash,
         tx.device_signature,
         tx.device_certificate,
         pk_bank
@@ -23,36 +23,41 @@ def verify_offline_transaction(
         return False
 
     # --------------------------------------------------
-    # 2. Verify spend ownership ZKPs
+    #   2. Verify spend ownership ZKP
     # --------------------------------------------------
     from crypto.zkp.spend import verify_spend_ownership
 
-    for serial, proof in zip(tx.input_serials, tx.spend_proof):
-        if not verify_spend_ownership(
-            proof["C"],
-            serial,
-            proof["proof"]
-        ):
-            return False
-
+    if not verify_spend_ownership(
+        tx.input_commitments[0],
+        tx.input_serials[0],
+        tx.spend_proof
+    ):
+        return False
     # --------------------------------------------------
     # 3. Verify value conservation
     # --------------------------------------------------
     from crypto.zkp.value import verify_value_conservation
 
     if not verify_value_conservation(
-        tx.value_proof["C_in"],
-        tx.value_proof["C_out"],
-        tx.value_proof["C_change"],
-        tx.value_proof["proof"]
+        tx.input_commitments[0],          # C_in
+        tx.output_commitments[0],         # C_out
+        tx.output_commitments[1],         # C_change
+        tx.value_proof
     ):
         return False
 
     # --------------------------------------------------
     # 4. Local double-spend prevention
     # --------------------------------------------------
+    from crypto.hash import serialize_point
+
     for serial in tx.input_serials:
-        if serial in seen_serials:
+        serial_bytes = serialize_point(serial)
+
+        if serial_bytes in seen_serials:
             return False
+
+        # Mark as seen
+        seen_serials.add(serial_bytes)
 
     return True

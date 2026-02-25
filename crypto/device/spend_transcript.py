@@ -1,6 +1,10 @@
 # crypto/device/spend_transcript.py
 
 from crypto.hash import sha256_int, serialize_point
+from transport.proof_serializer import (
+    serialize_spend_proof,
+    serialize_value_proof,
+)
 
 
 def build_spend_transcript(
@@ -36,17 +40,17 @@ def build_spend_transcript(
     )
 
     # --------------------------------------------------
-    # 3. Bind spend ZKP
+    # 3. Bind spend ZKP (DETERMINISTIC)
     # --------------------------------------------------
     spend_proof_bytes = sha256_int(
-        repr(spend_proof).encode()
+        serialize_spend_proof(spend_proof)
     ).to_bytes(32, "big")
 
     # --------------------------------------------------
-    # 4. Bind value conservation ZKP
+    # 4. Bind value conservation ZKP (DETERMINISTIC)
     # --------------------------------------------------
     value_proof_bytes = sha256_int(
-        repr(value_proof).encode()
+        serialize_value_proof(value_proof)
     ).to_bytes(32, "big")
 
     # --------------------------------------------------
