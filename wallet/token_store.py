@@ -14,6 +14,7 @@ class TokenStore:
     def __init__(self):
         # Maps token serial -> (Token, TokenState)
         self._tokens: Dict[int, tuple[Token, TokenState]] = {}
+        self.seen_serials = set()
 
     def add_token(self, token: Token):
         """
